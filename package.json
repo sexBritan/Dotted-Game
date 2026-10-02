@@ -6,7 +6,7 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "dist:win": "electron-builder --win nsis msi --x64"
+    "dist:win": "electron-builder --win nsis msi --x64 --publish never"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
