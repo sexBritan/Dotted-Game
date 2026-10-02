@@ -1,0 +1,30 @@
+{
+  "name": "territory-enclosure",
+  "version": "1.0.0",
+  "description": "Territory Enclosure",
+  "author": "CbroX",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis msi --x64"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.cbrox.territory",
+    "productName": "Territory Enclosure",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["electron/**", "www/**", "package.json"],
+    "win": { "icon": "build/icon.ico", "target": ["nsis", "msi"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true },
+    "msi": { "oneClick": false }
+  }
+}

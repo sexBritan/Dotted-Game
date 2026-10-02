@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Territory Enclosure - Unified Shapes</title>
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Google+Sans:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+  <style>
+    :root {
+      --md-sys-color-background: #050508;
+      --md-sys-color-surface: #121318;
+      --md-sys-color-surface-variant: #1a1c23;
+      --md-sys-color-primary: #a8c7fa;
+      --md-sys-color-on-primary: #003062;
+      --md-sys-color-outline: #434753;
+      --md-sys-color-p1: #4C8DF6;
+      --md-sys-color-p2: #F25555;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: 'Google Sans', 'Roboto', sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--md-sys-color-background);
+      color: #e2e2e9;
+    }
+
+    #game-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 10;
+    }
+
+    .player-card {
+      background: rgba(18, 19, 24, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--md-sys-color-outline);
+      border-radius: 20px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s;
+    }
+
+    .player-card.active {
+      border-color: #ffffff;
+      transform: scale(1.05);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .player-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .player-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .player-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .player-score {
+      font-size: 12px;
+      color: #90909a;
+    }
+
+    .p1-color { background-color: var(--md-sys-color-p1); }
+    .p2-color { background-color: var(--md-sys-color-p2); }
+
+    .fab-panel {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .md3-fab {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background-color: var(--md-sys-color-surface-variant);
+      color: var(--md-sys-color-primary);
+      border: 1px solid var(--md-sys-color-outline);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .md3-fab:active {
+      transform: scale(0.95);
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .md3-dialog {
+      background: var(--md-sys-color-surface);
+      border-radius: 28px;
+      padding: 24px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid var(--md-sys-color-outline);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .md3-dialog-title {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .md3-input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--md-sys-color-surface-variant);
+      border: 1px solid var(--md-sys-color-outline);
+      color: white;
+      margin-bottom: 12px;
+      outline: none;
+    }
+
+    /* MD3 number input */
+    .md3-number-field {
+      position: relative;
+      width: 100%;
+      margin-bottom: 12px;
+    }
+
+    .md3-number-field .md3-input {
+      margin-bottom: 0;
+      padding-right: 48px;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+
+    .md3-number-field .md3-input::-webkit-outer-spin-button,
+    .md3-number-field .md3-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .md3-number-controls {
+      position: absolute;
+      top: 1px;
+      right: 1px;
+      bottom: 1px;
+      width: 40px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 0 11px 11px 0;
+    }
+
+    .md3-number-button {
+      flex: 1;
+      min-height: 0;
+      border: 0;
+      background: transparent;
+      color: #c4c6d0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .md3-number-button:hover {
+      background: rgba(168, 199, 250, 0.10);
+      color: var(--md-sys-color-primary);
+    }
+
+    .md3-number-button:active {
+      background: rgba(168, 199, 250, 0.18);
+    }
+
+    .md3-number-button:focus-visible {
+      outline: 2px solid var(--md-sys-color-primary);
+      outline-offset: -2px;
+    }
+
+    .md3-number-button .material-symbols-outlined {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .md3-button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 20px;
+      border: none;
+      background: var(--md-sys-color-primary);
+      color: var(--md-sys-color-on-primary);
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    #toast {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #303036;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 24px;
+      font-size: 14px;
+      transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="game-canvas"></canvas>
+
+  <div class="hud-overlay">
+    <div class="player-card active" id="card-p1">
+      <div class="player-avatar p1-color" id="avatar-p1">P1</div>
+      <div class="player-info">
+        <span class="player-name" id="name-p1">Игрок 1</span>
+        <span class="player-score" id="score-p1">Счет: 0</span>
+      </div>
+    </div>
+
+    <div style="background: rgba(18,19,24,0.85); padding: 8px 16px; border-radius: 16px; font-size: 12px; pointer-events: auto;" id="mode-badge">
+      PASS & PLAY
+    </div>
+
+    <div class="player-card" id="card-p2">
+      <div class="player-avatar p2-color" id="avatar-p2">P2</div>
+      <div class="player-info">
+        <span class="player-name" id="name-p2">Игрок 2</span>
+        <span class="player-score" id="score-p2">Счет: 0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fab-panel">
+    <button class="md3-fab" id="btn-reset" title="Сбросить игру"><span class="material-symbols-outlined">refresh</span></button>
+    <button class="md3-fab" id="btn-field-size" title="Размер поля"><span class="material-symbols-outlined">crop_square</span></button>
+    <button class="md3-fab" id="btn-online" title="P2P Онлайн"><span class="material-symbols-outlined">wifi</span></button>
+  </div>
+
+  <div class="modal-backdrop" id="field-size-modal">
+    <div class="md3-dialog">
+      <div class="md3-dialog-title">Размер поля</div>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Введите размер квадратного поля от 100 до 1200.</p>
+      <div class="md3-number-field">
+        <input type="number" class="md3-input" id="field-size-input" min="100" max="1200" step="1" value="1000" inputmode="numeric">
+        <div class="md3-number-controls" aria-label="Изменить размер поля">
+          <button type="button" class="md3-number-button" id="field-size-increment" aria-label="Увеличить размер">
+            <span class="material-symbols-outlined">keyboard_arrow_up</span>
+          </button>
+          <button type="button" class="md3-number-button" id="field-size-decrement" aria-label="Уменьшить размер">
+            <span class="material-symbols-outlined">keyboard_arrow_down</span>
+          </button>
+        </div>
+      </div>
+      <button class="md3-button" id="btn-apply-field-size">Создать поле</button>
+      <button class="md3-button" style="background: transparent; color: #fff; margin-top: 4px;" id="btn-close-field-size">Отмена</button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="p2p-modal">
+    <div class="md3-dialog">
+      <div class="md3-dialog-title">P2P Онлайн игра</div>
+      <p style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Ваш Peer ID: <b id="my-peer-id">...</b></p>
+      <input type="text" class="md3-input" id="remote-peer-id" placeholder="Вставьте ID соперника">
+      <button class="md3-button" id="btn-connect">Подключиться к игроку</button>
+      <button class="md3-button" style="background: transparent; color: #fff; margin-top: 4px;" id="btn-close-modal">Отмена</button>
+    </div>
+  </div>
+
+  <div id="toast">Сообщение</div>
+
+  <script>
+    let GRID_SIZE = 1000;
+    const CELL_SIZE = 40;
+
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let dots = [];
+    let lines = [];
+    
+    // Храним захваченные клетки сетки (x, y) для каждого игрока
+    // Set ключей вида "x,y"
+    let capturedCells = {
+      1: new Set(),
+      2: new Set()
+    };
+
+    // Быстрые индексы: не сканируем все точки/линии при каждом ходе.
+    const dotMap = new Map(); // "x,y" -> dot
+    const lineKeys = {
+      1: new Set(),
+      2: new Set()
+    };
+
+    let currentPlayer = 1;
+    let scores = { 1: 0, 2: 0 };
+    let dotCounts = { 1: 0, 2: 0 };
+    let lastPlacedDot = null;
+    let moveCount = 0;
+    let gameOver = false;
+    let everPlayed = { 1: false, 2: false };
+
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let dragDistance = 0;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      render();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function centerBoard() {
+      offsetX = window.innerWidth / 2 - (GRID_SIZE * CELL_SIZE) / 2;
+      offsetY = window.innerHeight / 2 - (GRID_SIZE * CELL_SIZE) / 2;
+    }
+
+    centerBoard();
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function screenToGrid(sx, sy) {
+      const worldX = (sx - offsetX) / scale;
+      const worldY = (sy - offsetY) / scale;
+      return {
+        gx: Math.round(worldX / CELL_SIZE),
+        gy: Math.round(worldY / CELL_SIZE)
+      };
+    }
+
+    function getDot(gx, gy) {
+      return dots.find(d => d.x === gx && d.y === gy);
+    }
+
+    function isPointInCell(gx, gy) {
+      return capturedCells[1].has(`${gx},${gy}`) || capturedCells[2].has(`${gx},${gy}`);
+    }
+
+    function edgeKey(x1, y1, x2, y2) {
+      // Один и тот же отрезок всегда получает один ключ независимо от направления.
+      if (x1 > x2 || (x1 === x2 && y1 > y2)) {
+        [x1, x2] = [x2, x1];
+        [y1, y2] = [y2, y1];
+      }
+      return `${x1},${y1},${x2},${y2}`;
+    }
+
+    function addLine(player, x1, y1, x2, y2) {
+      const key = edgeKey(x1, y1, x2, y2);
+      if (lineKeys[player].has(key)) return;
+
+      lineKeys[player].add(key);
+      lines.push({ x1, y1, x2, y2, player });
+    }
+
+    function placeDot(gx, gy) {
+      if (gameOver) return;
+      if (gx < 0 || gx >= GRID_SIZE || gy < 0 || gy >= GRID_SIZE) return;
+
+      const dotKey = `${gx},${gy}`;
+      if (dotMap.has(dotKey)) return;
+
+      const player = currentPlayer;
+      const newDot = { x: gx, y: gy, player };
+
+      dots.push(newDot);
+      dotMap.set(dotKey, newDot);
+      dotCounts[player]++;
+      lastPlacedDot = newDot;
+      everPlayed[player] = true;
+      moveCount++;
+
+      // Ищем только 4 возможных соседей вместо полного прохода по dots.
+      const neighbors = [
+        [gx - 1, gy],
+        [gx + 1, gy],
+        [gx, gy - 1],
+        [gx, gy + 1]
+      ];
+
+      for (const [nx, ny] of neighbors) {
+        const neighbor = dotMap.get(`${nx},${ny}`);
+        if (neighbor && neighbor.player === player) {
+          addLine(player, gx, gy, nx, ny);
+        }
+      }
+
+      checkCaptures(player);
+
+      // Если у уже участвовавшего игрока не осталось точек — он проиграл.
+      // На первом ходе второй игрок ещё не участвовал, поэтому игра не заканчивается
+      // из-за его нулевого количества точек.
+      if (!gameOver) {
+        const enemy = player === 1 ? 2 : 1;
+        const enemyDots = dotCounts[enemy];
+
+        if (everPlayed[enemy] && enemyDots === 0) {
+          gameOver = true;
+          showToast(`Игрок ${enemy} проиграл — точек не осталось`);
+        } else if (moveCount > 0 && dots.length === 0) {
+          gameOver = true;
+          showToast(`Игра окончена — на поле не осталось точек`);
+        }
+      }
+
+      if (!gameOver) {
+        currentPlayer = currentPlayer === 1 ? 2 : 1;
+      }
+
+      updateUI();
+      render();
+    }
+
+    /*
+     * Поиск захваченной области без перебора циклов.
+     *
+     * Старый алгоритм запускал DFS для каждого узла графа и фактически
+     * перебирал множество вариантов циклов. Поэтому с ростом числа точек
+     * ход становился всё медленнее.
+     *
+     * Здесь рассматривается только связная компонента, к которой относится
+     * последний ход. Мы "заливаем" клетки снаружи этой компоненты. Всё,
+     * до чего снаружи добраться нельзя через рёбра игрока, является
+     * захваченной областью. Сложность зависит от размера локальной рамки,
+     * а не от количества всех возможных циклов.
+     */
+    function checkCaptures(player) {
+      const lastPlayerDot = lastPlacedDot;
+      if (!lastPlayerDot || lastPlayerDot.player !== player) return;
+
+      // Находим связную компоненту последней поставленной точки.
+      // Это не зависит от количества чужих территорий и не перебирает циклы.
+      const component = [];
+      const visitedDots = new Set();
+      const queue = [lastPlayerDot];
+      let minX = lastPlayerDot.x;
+      let maxX = lastPlayerDot.x;
+      let minY = lastPlayerDot.y;
+      let maxY = lastPlayerDot.y;
+
+      while (queue.length) {
+        const d = queue.pop();
+        const key = `${d.x},${d.y}`;
+        if (visitedDots.has(key)) continue;
+        visitedDots.add(key);
+        component.push(d);
+
+        minX = Math.min(minX, d.x);
+        maxX = Math.max(maxX, d.x);
+        minY = Math.min(minY, d.y);
+        maxY = Math.max(maxY, d.y);
+
+        const neighbors = [
+          [d.x - 1, d.y], [d.x + 1, d.y],
+          [d.x, d.y - 1], [d.x, d.y + 1]
+        ];
+
+        for (const [nx, ny] of neighbors) {
+          const n = dotMap.get(`${nx},${ny}`);
+          if (n && n.player === player && !visitedDots.has(`${nx},${ny}`)) {
+            queue.push(n);
+          }
+        }
+      }
+
+      // Замкнутый контур должен иметь хотя бы 4 вершины.
+      if (component.length < 4) return;
+
+      /*
+       * ВАЖНО:
+       * Клетка (x,y) находится между четырьмя точками:
+       * (x,y), (x+1,y), (x,y+1), (x+1,y+1).
+       * Поэтому линия между точками НЕ является границей между клетками
+       * с такими же координатами. В предыдущей версии был сдвиг на одну
+       * клетку, из-за которого прямоугольник захватывал соседнюю клетку.
+       *
+       * Здесь flood-fill работает именно по клеткам, а каждая линия
+       * корректно блокирует переход через соответствующую сторону клетки.
+       */
+      const left = Math.max(0, minX - 1);
+      const right = Math.min(GRID_SIZE - 1, maxX);
+      const top = Math.max(0, minY - 1);
+      const bottom = Math.min(GRID_SIZE - 1, maxY);
+
+      const width = right - left + 1;
+      const height = bottom - top + 1;
+      if (width <= 0 || height <= 0 || width * height > 4000000) return;
+
+      const outside = new Uint8Array(width * height);
+      const indexOf = (x, y) => (y - top) * width + (x - left);
+
+      // Две соседние клетки разделены вертикальной/горизонтальной линией.
+      const blockedBetweenCells = (x1, y1, x2, y2) => {
+        if (x1 === x2) {
+          // Переход вверх/вниз. Граница имеет горизонтальную линию y = max(y1,y2).
+          const edgeY = Math.max(y1, y2);
+          return lineKeys[player].has(edgeKey(x1, edgeY, x1 + 1, edgeY));
+        }
+
+        // Переход влево/вправо. Граница имеет вертикальную линию x = max(x1,x2).
+        const edgeX = Math.max(x1, x2);
+        return lineKeys[player].has(edgeKey(edgeX, y1, edgeX, y1 + 1));
+      };
+
+      // Начинаем с клетки снаружи контура.
+      const flood = [[left, top]];
+      outside[indexOf(left, top)] = 1;
+
+      while (flood.length) {
+        const [x, y] = flood.pop();
+
+        const tryVisit = (nx, ny) => {
+          if (nx < left || nx > right || ny < top || ny > bottom) return;
+          const idx = indexOf(nx, ny);
+          if (outside[idx]) return;
+          if (blockedBetweenCells(x, y, nx, ny)) return;
+
+          outside[idx] = 1;
+          flood.push([nx, ny]);
+        };
+
+        tryVisit(x - 1, y);
+        tryVisit(x + 1, y);
+        tryVisit(x, y - 1);
+        tryVisit(x, y + 1);
+      }
+
+      const enemy = player === 1 ? 2 : 1;
+      let capturedCount = 0;
+
+      // Незаливаемые снаружи клетки — именно клетки внутри контура.
+      for (let y = minY; y < maxY; y++) {
+        for (let x = minX; x < maxX; x++) {
+          if (x < left || x > right || y < top || y > bottom) continue;
+          if (outside[indexOf(x, y)]) continue;
+
+          const key = `${x},${y}`;
+
+          if (!capturedCells[player].has(key)) {
+            capturedCells[player].add(key);
+            capturedCount++;
+          }
+
+          // Если эта клетка раньше принадлежала сопернику, она переходит
+          // текущему игроку, а не остаётся под старой заливкой.
+          capturedCells[enemy].delete(key);
+        }
+      }
+
+      if (capturedCount === 0) return;
+
+      // Удаляем вражеские точки, находящиеся строго внутри захваченных клеток.
+      // Точка на границе контура не удаляется.
+      const capturedSet = capturedCells[player];
+      const remainingDots = [];
+
+      // Убираем ЛЮБЫЕ точки строго внутри захваченной территории,
+      // включая собственные. Точка считается внутренней, если все
+      // четыре клетки вокруг неё принадлежат одной захваченной области.
+      // Точки на границе остаются — они образуют контур территории.
+      for (const d of dots) {
+        const inside =
+          capturedSet.has(`${d.x - 1},${d.y - 1}`) &&
+          capturedSet.has(`${d.x},${d.y - 1}`) &&
+          capturedSet.has(`${d.x - 1},${d.y}`) &&
+          capturedSet.has(`${d.x},${d.y}`);
+
+        if (inside) {
+          dotMap.delete(`${d.x},${d.y}`);
+          dotCounts[d.player]--;
+        } else {
+          remainingDots.push(d);
+        }
+      }
+
+      if (remainingDots.length !== dots.length) {
+        dots = remainingDots;
+
+        // Удаляем линии, если после удаления точки один из концов исчез.
+        lines = lines.filter(l => {
+          const keep = dotMap.has(`${l.x1},${l.y1}`) && dotMap.has(`${l.x2},${l.y2}`);
+          if (!keep) {
+            lineKeys[l.player].delete(edgeKey(l.x1, l.y1, l.x2, l.y2));
+          }
+          return keep;
+        });
+      }
+
+      scores[player] += capturedCount * 10;
+      showToast(`Захвачено ячеек: ${capturedCount} (+${capturedCount * 10} очков)`);
+    }
+
+    function updateUI() {
+      document.getElementById('card-p1').classList.toggle('active', currentPlayer === 1);
+      document.getElementById('card-p2').classList.toggle('active', currentPlayer === 2);
+      document.getElementById('score-p1').innerText = `Счет: ${scores[1]}`;
+      document.getElementById('score-p2').innerText = `Счет: ${scores[2]}`;
+      document.getElementById('mode-badge').innerText =
+        gameOver ? 'ИГРА ОКОНЧЕНА' : document.getElementById('mode-badge').innerText;
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+
+      // Отрисовка закрашенных ячеек как единых фигур
+      [1, 2].forEach(p => {
+        ctx.fillStyle = p === 1 ? 'rgba(76, 141, 246, 0.45)' : 'rgba(242, 85, 85, 0.45)';
+        capturedCells[p].forEach(key => {
+          const [cx, cy] = key.split(',').map(Number);
+          ctx.fillRect(cx * CELL_SIZE, cy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        });
+      });
+
+      // Сетка
+      ctx.fillStyle = '#20222c';
+      const startGX = Math.max(0, Math.floor(-offsetX / (CELL_SIZE * scale)));
+      const endGX = Math.min(GRID_SIZE, Math.ceil((canvas.width - offsetX) / (CELL_SIZE * scale)));
+      const startGY = Math.max(0, Math.floor(-offsetY / (CELL_SIZE * scale)));
+      const endGY = Math.min(GRID_SIZE, Math.ceil((canvas.height - offsetY) / (CELL_SIZE * scale)));
+
+      for (let x = startGX; x <= endGX; x += 1) {
+        for (let y = startGY; y <= endGY; y += 1) {
+          ctx.fillRect(x * CELL_SIZE - 1, y * CELL_SIZE - 1, 2, 2);
+        }
+      }
+
+      // Отрисовка границ. Если по обе стороны линии находится
+      // территория одного игрока, внутренняя линия не рисуется:
+      // соседние клетки визуально становятся одной общей территорией.
+      function isInternalTerritoryEdge(l) {
+        const cells = capturedCells[l.player];
+
+        if (l.y1 === l.y2) {
+          // Горизонтальная линия между клетками сверху и снизу.
+          const y = l.y1;
+          const minX = Math.min(l.x1, l.x2);
+          const maxX = Math.max(l.x1, l.x2);
+
+          for (let x = minX; x < maxX; x++) {
+            const above = `${x},${y - 1}`;
+            const below = `${x},${y}`;
+            if (!(cells.has(above) && cells.has(below))) return false;
+          }
+          return true;
+        }
+
+        if (l.x1 === l.x2) {
+          // Вертикальная линия между клетками слева и справа.
+          const x = l.x1;
+          const minY = Math.min(l.y1, l.y2);
+          const maxY = Math.max(l.y1, l.y2);
+
+          for (let y = minY; y < maxY; y++) {
+            const left = `${x - 1},${y}`;
+            const right = `${x},${y}`;
+            if (!(cells.has(left) && cells.has(right))) return false;
+          }
+          return true;
+        }
+
+        return false;
+      }
+
+      lines.forEach(l => {
+        if (isInternalTerritoryEdge(l)) return;
+
+        ctx.strokeStyle = l.player === 1 ? '#4C8DF6' : '#F25555';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(l.x1 * CELL_SIZE, l.y1 * CELL_SIZE);
+        ctx.lineTo(l.x2 * CELL_SIZE, l.y2 * CELL_SIZE);
+        ctx.stroke();
+      });
+
+      // Точки
+      dots.forEach(d => {
+        ctx.fillStyle = d.player === 1 ? '#4C8DF6' : '#F25555';
+        ctx.beginPath();
+        ctx.arc(d.x * CELL_SIZE, d.y * CELL_SIZE, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    }
+
+    // Зум и панорамирование
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newScale = Math.min(Math.max(0.2, scale * zoomFactor), 5);
+
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
+      offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+      scale = newScale;
+
+      render();
+    }, { passive: false });
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      startX = e.clientX - offsetX;
+      startY = e.clientY - offsetY;
+      dragDistance = 0;
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      const dx = Math.abs(e.clientX - (startX + offsetX));
+      const dy = Math.abs(e.clientY - (startY + offsetY));
+      dragDistance += dx + dy;
+
+      offsetX = e.clientX - startX;
+      offsetY = e.clientY - startY;
+      render();
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isDragging = false;
+      if (dragDistance < 8) {
+        const { gx, gy } = screenToGrid(e.clientX, e.clientY);
+        placeDot(gx, gy);
+      }
+    });
+
+    function resetGame(message = "Игра сброшена") {
+      dots = [];
+      lines = [];
+      capturedCells = { 1: new Set(), 2: new Set() };
+      dotMap.clear();
+      lineKeys[1].clear();
+      lineKeys[2].clear();
+      scores = { 1: 0, 2: 0 };
+      dotCounts = { 1: 0, 2: 0 };
+      lastPlacedDot = null;
+      currentPlayer = 1;
+      moveCount = 0;
+      gameOver = false;
+      everPlayed = { 1: false, 2: false };
+      centerBoard();
+      updateUI();
+      render();
+      showToast(message);
+    }
+
+    // Заглушка: если PeerJS не загрузился (нет интернета) — игра всё равно работает локально
+    if (typeof Peer === 'undefined') {
+      window.Peer = function () {
+        return { on() {}, connect() { return { on() {}, send() {}, open: false }; } };
+      };
+    }
+    // P2P PeerJS
+    const peer = new Peer();
+    let conn = null;
+
+    peer.on('open', (id) => {
+      document.getElementById('my-peer-id').innerText = id;
+    });
+
+    peer.on('connection', (c) => {
+      conn = c;
+      setupConn();
+      showToast("Игрок подключился!");
+    });
+
+    document.getElementById('btn-connect').onclick = () => {
+      const remoteId = document.getElementById('remote-peer-id').value;
+      if (remoteId) {
+        conn = peer.connect(remoteId);
+        setupConn();
+      }
+    };
+
+    function setupConn() {
+      document.getElementById('p2p-modal').classList.remove('open');
+      document.getElementById('mode-badge').innerText = 'P2P ONLINE';
+      
+      conn.on('data', (data) => {
+        if (data.type === 'MOVE') {
+          placeDot(data.gx, data.gy);
+        } else if (data.type === 'GRID_SIZE') {
+          const nextSize = Number(data.size);
+          if (Number.isInteger(nextSize) && nextSize >= 100 && nextSize <= 1200) {
+            GRID_SIZE = nextSize;
+            resetGame(`Размер поля: ${GRID_SIZE} × ${GRID_SIZE}`);
+          }
+        }
+      });
+      if (conn.open) {
+        conn.send({ type: 'GRID_SIZE', size: GRID_SIZE });
+      } else {
+        conn.on('open', () => conn.send({ type: 'GRID_SIZE', size: GRID_SIZE }));
+      }
+    }
+
+    document.getElementById('btn-online').onclick = () => {
+      document.getElementById('p2p-modal').classList.add('open');
+    };
+    document.getElementById('btn-close-modal').onclick = () => {
+      document.getElementById('p2p-modal').classList.remove('open');
+    };
+
+    const fieldSizeModal = document.getElementById('field-size-modal');
+    const fieldSizeInput = document.getElementById('field-size-input');
+
+    document.getElementById('btn-field-size').onclick = () => {
+      fieldSizeInput.value = GRID_SIZE;
+      fieldSizeModal.classList.add('open');
+      fieldSizeInput.focus();
+      fieldSizeInput.select();
+    };
+
+    document.getElementById('btn-close-field-size').onclick = () => {
+      fieldSizeModal.classList.remove('open');
+    };
+
+    document.getElementById('btn-apply-field-size').onclick = () => {
+      const value = Number(fieldSizeInput.value);
+      if (!Number.isInteger(value) || value < 100 || value > 1200) {
+        showToast('Размер должен быть целым числом от 100 до 1200');
+        return;
+      }
+
+      GRID_SIZE = value;
+      fieldSizeModal.classList.remove('open');
+      resetGame(`Поле ${GRID_SIZE} × ${GRID_SIZE} создано`);
+
+      if (conn && conn.open) {
+        conn.send({ type: 'GRID_SIZE', size: GRID_SIZE });
+      }
+    };
+
+    function changeFieldSizeBy(delta) {
+      const current = Number(fieldSizeInput.value) || 1000;
+      const next = Math.min(1200, Math.max(100, current + delta));
+      fieldSizeInput.value = next;
+      fieldSizeInput.focus();
+    }
+
+    document.getElementById('field-size-increment').onclick = () => changeFieldSizeBy(1);
+    document.getElementById('field-size-decrement').onclick = () => changeFieldSizeBy(-1);
+
+    fieldSizeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btn-apply-field-size').click();
+      if (e.key === 'Escape') fieldSizeModal.classList.remove('open');
+    });
+
+    document.getElementById('btn-reset').onclick = () => {
+      resetGame();
+    };
+
+    resizeCanvas();
+    updateUI();
+  </script>
+</body>
+</html>
